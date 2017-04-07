@@ -2,14 +2,17 @@ from flask import Flask, request
 import telegram
 import os, subprocess
 import lxml
-from urllib import urlopen
+from urllib import urlopen, urlretrieve
+import httplib
 from lxml import etree
 from threading import Thread
 import random, string
 import re, pipes
 from datetime import datetime
 import urlparse
-import time
+#import time
+import json
+import unicodedata
 
 class YoutubeToMP3(object):
 	def __init__(self, token, host, port, cert, cert_key, working_dir):
@@ -49,31 +52,28 @@ class YoutubeToMP3(object):
 			self.downloader(message, chat_id, user)
 
 	def downloader(self, message, chat_id, user):
-		youtube = etree.HTML(urlopen(message).read())
-		video_title = youtube.xpath("//span[@id='eow-title']/@title")
-		self.bot.sendMessage(chat_id=chat_id, text = 'Attempting to download the video...')
-		curr_dir = self.working_dir + '/' + str(chat_id).replace("-", "")
-		os.chdir(curr_dir)
-		if re.search(r'^(https?\:\/\/)?(www\.)?(youtube\.com|m.youtube\.com)\/.+$', message):
-			url_data = urlparse.urlparse(message)
-			query = urlparse.parse_qs(url_data.query)
-			video = query["v"][0]
-			message = "https://youtube.com/watch?v=" + video;
-		title =(video_title[0].encode('unicode-escape') + ".mp3").replace('/', '');
 		try:
-			proc = subprocess.Popen(["youtube-dl --output %s --extract-audio --audio-format mp3 %s" %( pipes.quote(title), pipes.quote(message.encode('unicode-escape')))], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-			(out, err) = proc.communicate()
-			if err != "":
-				if "o4Ckk2OI6Bw" in err:
-					self.bot.sendMessage(chat_id=chat_id, text = "Sorry, this video is not avaiable in the country where the server is located, so i can't download it :/");
-					raise ValueError("101");
-				raise;
-			self.bot.sendAudio(chat_id=chat_id, audio=open(curr_dir + '/' + title, 'rb'))
-			os.remove(curr_dir + '/' + title)
+			curr_dir = self.working_dir + '/' + str(chat_id).replace("-", "")
+			os.chdir(curr_dir)
+			RequestUrl = 'http://www.youtubeinmp3.com/fetch/index.php?format=json&video=%s' % (message)
+			JsonVideoData = json.load(urlopen(RequestUrl))
+			self.bot.sendMessage(chat_id=chat_id, text = 'Downloading ' +  JsonVideoData['title'] + '...');
+			f = urlopen(JsonVideoData['link'], JsonVideoData['title'].replace('/', '').encode('utf-8').strip() + '.mp3')
+			fulltitle = (curr_dir + '/' + JsonVideoData['title'].replace('/', '') + '.mp3')
+			fulltitle = unicodedata.normalize('NFKD', fulltitle).encode('utf-8').strip()
+			with open(fulltitle, 'wb') as mp3:
+				mp3.write(f.read());
+			with open(fulltitle) as mp3:
+				self.bot.sendAudio(chat_id=chat_id, audio=mp3)
+			os.remove(fulltitle);
 			with open('log', 'a') as f:
 				f.write(message + " " + str(datetime.now().time()))
 				f.write("\n");
 				f.close()
+		except ValueError as e:
+			self.bot.sendMessage(chat_id=chat_id, text = 'Video not found on the database of www.youtubeinmp3.com, but you can download the mp3 (and update the database) by using this link: ');
+			RequestUrl = 'http://www.youtubeinmp3.com/download/?video=%s' % (message)
+			self.bot.sendMessage(chat_id=chat_id, text = RequestUrl)
 		except Exception as e:
 			if str(e) != "101":					
 				self.bot.sendMessage(chat_id=chat_id, text = 'Something went wrong, maybe the video does not exists,\nif the error persist send the code in the next message to the developer, Telegram: @aakagoree')
@@ -81,9 +81,10 @@ class YoutubeToMP3(object):
 			with open('log', 'a') as f:
 				f.write("!!EXCEPTION!!! " + message + " " + str(datetime.now().time()) + " " + str(e))
 				f.write("\n");
-				f.close()
+				f.close()			
 		finally:
 			os.chdir(self.working_dir)
+			
 	def hello(self):
 		return "Hello World!"
 	def WebHook(self):
