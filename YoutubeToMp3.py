@@ -107,7 +107,3 @@ class YoutubeToMP3(object):
 		self.app.add_url_rule('/' + self.token, view_func=self.WebHook,  methods=['POST'])
 		self.app.add_url_rule('/', view_func=self.hello,  methods=['GET'])
 		self.app.run(host=self.host,port=self.port,ssl_context=self.context,debug = False)
-
-if __name__ == '__main__':
-	ytToMp3 = YoutubeToMP3('xx', 'xx', 443, '/xx', 'xx', '/xx')
-	ytToMp3.botRun()
