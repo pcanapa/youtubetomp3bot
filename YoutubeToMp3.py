@@ -1,6 +1,6 @@
 from flask import Flask, request
 import telegram
-import os
+import os, subprocess
 import lxml
 from urllib import urlopen
 from lxml import etree
@@ -10,6 +10,7 @@ import re, pipes
 from datetime import datetime
 import urlparse
 import time
+
 class YoutubeToMP3(object):
 	def __init__(self, token, host, port, cert, cert_key, working_dir):
     		
@@ -59,8 +60,14 @@ class YoutubeToMP3(object):
 			video = query["v"][0]
 			message = "https://youtube.com/watch?v=" + video;
 		title =(video_title[0].encode('unicode-escape') + ".mp3").replace('/', '');
-		os.system("youtube-dl  --output %s --extract-audio --audio-format mp3 %s" %( pipes.quote(title), pipes.quote(message.encode('unicode-escape'))))
 		try:
+			proc = subprocess.Popen(["youtube-dl --output %s --extract-audio --audio-format mp3 %s" %( pipes.quote(title), pipes.quote(message.encode('unicode-escape')))], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+			(out, err) = proc.communicate()
+			if err != "":
+				if "o4Ckk2OI6Bw" in err:
+					self.bot.sendMessage(chat_id=chat_id, text = "Sorry, this video is not avaiable in the country where the server is located, so i can't download it :/");
+					raise ValueError("101");
+				raise;
 			self.bot.sendAudio(chat_id=chat_id, audio=open(curr_dir + '/' + title, 'rb'))
 			os.remove(curr_dir + '/' + title)
 			with open('log', 'a') as f:
@@ -68,8 +75,9 @@ class YoutubeToMP3(object):
 				f.write("\n");
 				f.close()
 		except Exception as e:
-			self.bot.sendMessage(chat_id=chat_id, text = 'Something went wrong, maybe the video does not exists,\nif the error persist send the code in the next message to the developer, Telegram: @aakagoree')
-			self.bot.sendMessage(chat_id=chat_id, text = str(chat_id))
+			if str(e) != "101":					
+				self.bot.sendMessage(chat_id=chat_id, text = 'Something went wrong, maybe the video does not exists,\nif the error persist send the code in the next message to the developer, Telegram: @aakagoree')
+				self.bot.sendMessage(chat_id=chat_id, text = str(chat_id))
 			with open('log', 'a') as f:
 				f.write("!!EXCEPTION!!! " + message + " " + str(datetime.now().time()) + " " + str(e))
 				f.write("\n");
@@ -98,7 +106,7 @@ class YoutubeToMP3(object):
 
 		self.app.add_url_rule('/' + self.token, view_func=self.WebHook,  methods=['POST'])
 		self.app.add_url_rule('/', view_func=self.hello,  methods=['GET'])
-		self.app.run(host=self.host,port=self.port,ssl_context=self.context,debug = True)
+		self.app.run(host=self.host,port=self.port,ssl_context=self.context,debug = False)
 
 if __name__ == '__main__':
 	ytToMp3 = YoutubeToMP3('xx', 'xx', 443, '/xx', 'xx', '/xx')
