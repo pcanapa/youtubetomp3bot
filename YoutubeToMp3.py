@@ -13,7 +13,7 @@ import urlparse
 #import time
 import json
 import unicodedata
-
+import pprint
 class YoutubeToMP3(object):
 	def __init__(self, token, host, port, cert, cert_key, working_dir):
     		
@@ -27,7 +27,7 @@ class YoutubeToMP3(object):
 		self.app = Flask(__name__)
 		self.context = (self.cert, self.cert_key)
 		self.working_dir = working_dir
-		self.kb = [[telegram.KeyboardButton('Offer me a coffee'), telegram.KeyboardButton('Source Code')]]
+		self.kb = [[telegram.KeyboardButton('Offer me a coffee'), telegram.KeyboardButton('Source Code'), telegram.KeyboardButton('Vote Me')]]
 		self.kb_markup = telegram.ReplyKeyboardMarkup(self.kb, resize_keyboard=True)
 
 	def Parser(self, message, chat_id, user):
@@ -37,12 +37,15 @@ class YoutubeToMP3(object):
 				os.makedirs(self.working_dir + '/' +str(chat_id).replace("-", ""))
 			except:
 				pass
+	
+		if(message  == "Vote Me"):
+			self.bot.sendMessage(chat_id=chat_id, text='https://storebot.me/bot/goreboredbot', reply_markup = self.kb_markup)
 
-		if (message == "Offer me a coffee"):
-			self.bot.sendMessage(chat_id=chat_id, text='Bitcoin: 1KAFnFWUqwJUX4ZrbkzB3ja8a58EWfpKH5\nPayPal: https://paypal.me/PaoloPulli')
+		if (message == 'Offer me a coffee'):
+			self.bot.sendMessage(chat_id=chat_id, text='Bitcoin: 1KAFnFWUqwJUX4ZrbkzB3ja8a58EWfpKH5\nPayPal: https://paypal.me/PaoloPulli', reply_markup = self.kb_markup)
 
 		if (message == "Source Code"):
-			self.bot.sendMessage(chat_id=chat_id, text='https://github.com/pcanapa/youtubetomp3bot')
+			self.bot.sendMessage(chat_id=chat_id, text='https://github.com/pcanapa/youtubetomp3bot', reply_markup = self.kb_markup)
 
 		if re.search(r'^(https?\:\/\/)?(www\.)?(youtube\.com|youtu\.?be|m.youtube\.com|m.youtu\.?be)\/.+$', message):
 			try:
@@ -57,7 +60,7 @@ class YoutubeToMP3(object):
 			os.chdir(curr_dir)
 			RequestUrl = 'http://www.youtubeinmp3.com/fetch/index.php?format=json&video=%s' % (message)
 			JsonVideoData = json.load(urlopen(RequestUrl))
-			self.bot.sendMessage(chat_id=chat_id, text = 'Downloading ' +  JsonVideoData['title'] + '...');
+			self.bot.sendMessage(chat_id=chat_id, text = 'Downloading ' +  JsonVideoData['title'] + '...', reply_markup = self.kb_markup);
 			f = urlopen(JsonVideoData['link'], JsonVideoData['title'].replace('/', '').encode('utf-8').strip() + '.mp3')
 			fulltitle = (curr_dir + '/' + JsonVideoData['title'].replace('/', '') + '.mp3')
 			fulltitle = unicodedata.normalize('NFKD', fulltitle).encode('utf-8').strip()
@@ -70,6 +73,23 @@ class YoutubeToMP3(object):
 				f.write(message + " " + str(datetime.now().time()))
 				f.write("\n");
 				f.close()
+				
+			url_data = urlparse.urlparse(message)
+			if url_data.hostname == 'youtu.be':
+				video = url_data.path[1:]	
+			else:
+				query = urlparse.parse_qs(url_data.query)
+				video = query["v"][0]
+			
+			VideosUrl = 'https://www.googleapis.com/youtube/v3/search?part=snippet&relatedToVideoId=%s&type=video&key=AIzaSyBL7pNOhv1u-u4HPy_G2bKRjDY9TVXXu9c' % video
+			VideosJson = json.load(urlopen(VideosUrl))
+			
+			videokb = [[telegram.KeyboardButton('https://www.youtube.com/watch?v='+VideosJson['items'][0]['id']['videoId'])], [telegram.KeyboardButton('https://www.youtube.com/watch?v='+VideosJson['items'][1]['id']['videoId'])], [telegram.KeyboardButton('https://www.youtube.com/watch?v='+VideosJson['items'][2]['id']['videoId'])], [telegram.KeyboardButton('Offer me a coffee'), telegram.KeyboardButton('Source Code'), telegram.KeyboardButton('Vote Me')] ]
+			videokb_markup = telegram.ReplyKeyboardMarkup(videokb, resize_keyboard=True)
+			
+			self.bot.sendMessage(chat_id=chat_id, text = 'Here on the keyboard there are some related videos, in order:\n\n1) ' + VideosJson['items'][0]['snippet']['title'] + '\n\n2) ' + VideosJson['items'][1]['snippet']['title'] + '\n\n3) ' + VideosJson['items'][2]['snippet']['title'], reply_markup = videokb_markup);
+			
+			
 		except ValueError as e:
 			self.bot.sendMessage(chat_id=chat_id, text = 'Video not found on the database of www.youtubeinmp3.com, but you can download the mp3 (and update the database) by using this link: ');
 			RequestUrl = 'http://www.youtubeinmp3.com/download/?video=%s' % (message)
@@ -78,6 +98,7 @@ class YoutubeToMP3(object):
 			if str(e) != "101":					
 				self.bot.sendMessage(chat_id=chat_id, text = 'Something went wrong, maybe the video does not exists,\nif the error persist send the code in the next message to the developer, Telegram: @aakagoree')
 				self.bot.sendMessage(chat_id=chat_id, text = str(chat_id))
+				#print str(e)
 			with open('log', 'a') as f:
 				f.write("!!EXCEPTION!!! " + message + " " + str(datetime.now().time()) + " " + str(e))
 				f.write("\n");
@@ -98,7 +119,7 @@ class YoutubeToMP3(object):
 
 	def setWebhook(self):
 		print('https://%s:%s/%s' % (self.host, self.port, self.token))
-		self.bot.setWebhook(webhook_url='https://%s:%s/%s' % (self.host, self.port, self.token),certificate=open(self.cert, 'rb'))
+		self.bot.setWebhook(url='https://%s:%s/%s' % (self.host, self.port, self.token),certificate=open(self.cert, 'rb'))
 	
 	def botRun(self):
 		
