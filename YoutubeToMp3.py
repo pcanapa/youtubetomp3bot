@@ -81,7 +81,7 @@ class YoutubeToMP3(object):
 				query = urlparse.parse_qs(url_data.query)
 				video = query["v"][0]
 			
-			VideosUrl = 'https://www.googleapis.com/youtube/v3/search?part=snippet&relatedToVideoId=%s&type=video&key=AIzaSyBL7pNOhv1u-u4HPy_G2bKRjDY9TVXXu9c' % video
+			VideosUrl = 'https://www.googleapis.com/youtube/v3/search?part=snippet&relatedToVideoId=%s&type=video&key=xx' % video
 			VideosJson = json.load(urlopen(VideosUrl))
 			
 			videokb = [[telegram.KeyboardButton('https://www.youtube.com/watch?v='+VideosJson['items'][0]['id']['videoId'])], [telegram.KeyboardButton('https://www.youtube.com/watch?v='+VideosJson['items'][1]['id']['videoId'])], [telegram.KeyboardButton('https://www.youtube.com/watch?v='+VideosJson['items'][2]['id']['videoId'])], [telegram.KeyboardButton('Offer me a coffee'), telegram.KeyboardButton('Source Code'), telegram.KeyboardButton('Vote Me')] ]
